@@ -2,6 +2,7 @@
 import { useTransition } from "react";
 import { finishLineup } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/button";
+import { haptic } from "@/lib/haptics";
 import { t, type Locale } from "@/lib/i18n";
 
 export function FinishButton({
@@ -23,11 +24,12 @@ export function FinishButton({
     <Button
       size="lg"
       disabled={pending}
-      onClick={() =>
+      onClick={() => {
+        haptic("heavy");
         start(() => {
           finishLineup();
-        })
-      }
+        });
+      }}
     >
       {t(locale, "today.finish")}
     </Button>

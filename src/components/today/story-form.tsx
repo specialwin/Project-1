@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { haptic } from "@/lib/haptics";
 import { t, type Locale } from "@/lib/i18n";
 
 export function StoryForm({ locale }: { locale: Locale }) {
@@ -23,6 +24,7 @@ export function StoryForm({ locale }: { locale: Locale }) {
     fd.set("preventionAnswer", prev);
     start(async () => {
       await addStory(fd);
+      haptic("medium");
       setAuthor("");
       setBad("");
       setPrev("");

@@ -170,7 +170,7 @@ export default async function TodayPage() {
 
       <div className="hairline" />
 
-      <section className="flex items-center justify-end gap-4">
+      <section className="finish-bar -mx-5 px-5 sm:-mx-6 sm:px-6 flex items-center justify-end gap-4">
         <FinishButton locale={locale} finished={finished} />
       </section>
     </div>

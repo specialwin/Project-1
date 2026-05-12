@@ -13,8 +13,8 @@ export default async function AppLayout({
   return (
     <>
       <PageHeader locale={locale} orgName={org.name} />
-      <main className="container py-8">{children}</main>
-      <footer className="container py-10 text-[0.72rem] uppercase tracking-wider3 text-muted">
+      <main className="container py-6">{children}</main>
+      <footer className="app-footer container py-8 text-[0.7rem] uppercase tracking-wider3 text-muted">
         Lineup
       </footer>
     </>

@@ -126,6 +126,48 @@ src/
     utils.ts            cn, date helpers
 ```
 
+## Installing on iPhone
+
+Lineup is a Progressive Web App. Once installed, it launches full-screen with
+no Safari chrome, has its own home-screen icon, and respects the iPhone's
+notch and home indicator.
+
+Three steps:
+
+1. Run the dev server bound to your LAN:
+   ```bash
+   npm run dev -- -H 0.0.0.0
+   ```
+2. Set `NEXTAUTH_URL` in `.env` to your laptop's LAN URL (e.g.
+   `http://192.168.1.42:3000`) and add the same origin to
+   `experimental.serverActions.allowedOrigins` in `next.config.mjs`.
+3. On your iPhone, open the URL in Safari. Tap the Share button, then
+   "Add to Home Screen." Tap the new Lineup icon on your home screen.
+
+For production install on a real device over the public internet, deploy to
+Vercel or any HTTPS host — iOS will only treat the app as installable from a
+secure origin.
+
+### What "native" means here
+
+The PWA path stays on the existing Next.js code and adds:
+
+- `src/app/manifest.ts` — web app manifest (paper/ink theme, standalone display)
+- `src/app/icon.tsx` and `src/app/apple-icon.tsx` — icons generated at build
+  time via `ImageResponse` (no PNG assets to manage)
+- `apple-mobile-web-app-*` and `viewport-fit=cover` meta in the root layout
+- `env(safe-area-inset-*)` padding so the header sits below the notch and the
+  footer clears the home indicator
+- Sticky header with translucent backdrop-blur (iOS-style)
+- `src/lib/haptics.ts` — tap feedback wired into attendance toggle, finish,
+  skip, and story save (no-op on iOS Safari, which lacks the Vibration API,
+  but kept thin so we can swap in Capacitor Haptics later)
+- An iOS-only "Add to Home Screen" hint that disappears once installed
+
+This will not appear in the App Store. If you later want TestFlight / App
+Store distribution, wrap this codebase with Capacitor — most of the iOS polish
+above will transfer directly.
+
 ## Voice
 
 Quiet, professional, slightly serious. No emojis. No motivational quotes.

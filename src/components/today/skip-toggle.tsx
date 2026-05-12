@@ -2,6 +2,7 @@
 import { useTransition } from "react";
 import { skipStandard } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/button";
+import { haptic } from "@/lib/haptics";
 import { t, type Locale } from "@/lib/i18n";
 
 export function SkipToggle({
@@ -17,6 +18,7 @@ export function SkipToggle({
       variant="quiet"
       disabled={pending}
       onClick={() => {
+        haptic("light");
         const fd = new FormData();
         fd.set("skip", String(!skipped));
         start(() => {

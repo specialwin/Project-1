@@ -1,6 +1,7 @@
 "use client";
 import { useTransition } from "react";
 import { toggleAttendance } from "@/app/(app)/actions";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 type Row = {
@@ -14,6 +15,7 @@ type Row = {
 export function AttendanceRow({ row }: { row: Row }) {
   const [pending, start] = useTransition();
   function onToggle() {
+    haptic("select");
     const fd = new FormData();
     fd.set("teamMemberId", row.teamMemberId);
     fd.set("present", String(!row.present));
@@ -27,7 +29,7 @@ export function AttendanceRow({ row }: { row: Row }) {
       onClick={onToggle}
       disabled={pending}
       className={cn(
-        "w-full flex items-center justify-between px-4 py-4 border-b border-ink/10 text-left transition-colors",
+        "w-full flex items-center justify-between px-5 py-5 min-h-[64px] border-b border-ink/10 text-left transition-colors active:bg-ink/[0.06]",
         row.present ? "bg-ink/[0.04]" : "hover:bg-ink/[0.02]",
       )}
     >
