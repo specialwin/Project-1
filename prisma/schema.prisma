@@ -1,0 +1,172 @@
+// Lineup — daily service culture huddle
+// SQLite for local-first development.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Organization
+// -----------------------------------------------------------------------------
+model Organization {
+  id                   String   @id @default(cuid())
+  name                 String
+  // "en" or "th". The seed creates both language fields on each Standard;
+  // language toggles which one we display.
+  language             String   @default("en")
+  // First day of the 25-day rotation. Day index = floor(days_since(cycleStartDate)) % 25.
+  cycleStartDate       DateTime @default(now())
+
+  // Summary delivery preferences.
+  ownerSummaryEmail    String?
+  lineNotifyToken      String?
+
+  // Billing / tier model (data only — no billing UI yet).
+  // tier: "free" | "team" | "owner_multi" | "coach"
+  //   free          : single org, up to 5 active team members.
+  //   team          : single org, unlimited members.
+  //   owner_multi   : a single owner can run multiple organizations.
+  //   coach         : adds cross-org read access to a designated coach user
+  //                   (the framework's author) for the quarterly report.
+  tier                 String   @default("free")
+  // For owner_multi: pointer to the parent owner account that bills.
+  billingOwnerId       String?
+  // Soft cap; enforced in application code at member-create time.
+  memberCap            Int?     @default(5)
+
+  members              TeamMember[]
+  standards            Standard[]
+  sessions             LineupSession[]
+  users                User[]
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// Standards (the 25)
+// -----------------------------------------------------------------------------
+model Standard {
+  id              String   @id @default(cuid())
+  organizationId  String
+  // 1..25. Stable within an organization.
+  number          Int
+  titleEn         String
+  bodyEn          String
+  titleTh         String
+  bodyTh          String
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sessions        LineupSession[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId])
+}
+
+// -----------------------------------------------------------------------------
+// Team members
+// -----------------------------------------------------------------------------
+model TeamMember {
+  id              String   @id @default(cuid())
+  organizationId  String
+  name            String
+  role            String?
+  active          Boolean  @default(true)
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  attendance      Attendance[]
+
+  createdAt       DateTime @default(now())
+
+  @@index([organizationId])
+}
+
+// -----------------------------------------------------------------------------
+// Daily huddle session
+// -----------------------------------------------------------------------------
+model LineupSession {
+  id                String   @id @default(cuid())
+  organizationId   String
+  // Stored as a UTC date at 00:00 local-ish. Uniqueness per org per calendar day.
+  date              DateTime
+  // null if skipped; standardSkipped indicates whether the day moved past
+  // the rotation pointer for the next cycle.
+  standardId        String?
+  standardSkipped   Boolean  @default(false)
+
+  // The "Munger Inversion" framing.
+  inversionPrompt   String?
+  consensusAnswer   String?
+
+  // One-line auto-composed end-of-lineup summary.
+  summary           String?
+
+  finishedAt        DateTime?
+
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  standard          Standard?    @relation(fields: [standardId], references: [id])
+  attendance        Attendance[]
+  stories           Story[]
+
+  createdAt         DateTime @default(now())
+
+  @@unique([organizationId, date])
+  @@index([organizationId, date])
+}
+
+// -----------------------------------------------------------------------------
+// Attendance — one row per team member per session
+// -----------------------------------------------------------------------------
+model Attendance {
+  id              String   @id @default(cuid())
+  sessionId       String
+  teamMemberId    String
+  present         Boolean  @default(false)
+
+  session         LineupSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  teamMember      TeamMember    @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, teamMemberId])
+  @@index([sessionId])
+}
+
+// -----------------------------------------------------------------------------
+// Bad-service inversion stories
+// -----------------------------------------------------------------------------
+model Story {
+  id                  String   @id @default(cuid())
+  sessionId           String
+  authorName          String?
+  badExperience       String
+  preventionAnswer    String?
+
+  session             LineupSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+
+  @@index([sessionId])
+}
+
+// -----------------------------------------------------------------------------
+// Auth (NextAuth credentials)
+// -----------------------------------------------------------------------------
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String?
+  passwordHash    String?
+  // "owner" | "team" | "coach"
+  role            String   @default("team")
+  organizationId  String?
+  // True for the framework's author — grants read across all orgs for the
+  // quarterly report. Set manually in the database for now.
+  isCoach         Boolean  @default(false)
+
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt       DateTime @default(now())
+}

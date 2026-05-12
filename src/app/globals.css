@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-serif: "Cormorant Garamond", "EB Garamond", "Sarabun", Georgia, serif;
+  --font-sans: "Inter", "Sarabun", system-ui, -apple-system, sans-serif;
+}
+
+html,
+body {
+  background-color: #f7f3ec;
+  color: #1c1a17;
+  font-family: var(--font-sans);
+}
+
+body {
+  font-feature-settings: "kern", "liga", "calt";
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-serif);
+  letter-spacing: -0.005em;
+}
+
+/* A thin rule used as a section divider. Hotel-stationery flavor. */
+.hairline {
+  height: 1px;
+  background: #1c1a17;
+  opacity: 0.15;
+}
+
+/* Numeric display for the streak. */
+.numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
