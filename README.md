@@ -1,174 +1,158 @@
-# Lineup
+# StockYa · ระบบบริหารสต๊อกยา
 
-The daily fifteen minutes. A small web app for running a service-culture huddle
-in a clinic, restaurant, or salon.
+เว็บแอปจัดการสต๊อกยาสำหรับโรงพยาบาล/คลินิก/ร้านยา ใช้งานได้ทั้งบนมือถือและคอมพิวเตอร์
 
-## Stack
+## ความสามารถ
 
-- Next.js 14 (App Router) with TypeScript
-- Tailwind, with hand-rolled shadcn-style primitives (`src/components/ui/*`)
-- Prisma + SQLite (local-first; switch the datasource for Postgres in
-  production)
-- NextAuth (credentials)
-- Nodemailer for SMTP, LINE Notify HTTP API for end-of-lineup delivery
+- 🔐 **หน้าเข้าสู่ระบบ** — ยืนยันตัวตนด้วยอีเมล/รหัสผ่าน (NextAuth)
+- 💊 **ทะเบียนยาแบบหลาย Lot** — ยาแต่ละตัวมีได้หลาย Lot แต่ละ Lot มีวันหมดอายุของตัวเอง
+- 📥 **รับยาเข้าสต๊อก** — บันทึก Lot ใหม่พร้อมวันหมดอายุ จำนวน และหมายเหตุ
+- 📤 **เบิกยาออก** — ตัดสต๊อกอัตโนมัติตามหลัก **FIFO/FEFO** (Lot ที่หมดอายุก่อน–ออกก่อน)
+- 🔁 **ย้ายคลัง** — โอนยาระหว่างคลัง ตัด Lot ตาม FIFO แล้วไปเพิ่มที่ปลายทาง
+- 📝 **หมายเหตุ** — ทุกการเคลื่อนไหวใส่หมายเหตุได้ และเก็บเป็นประวัติ
+- ⏰ **แจ้งเตือนยาหมดอายุ** — แยกสถานะ หมดอายุแล้ว / ใกล้หมดอายุมาก / ใกล้หมดอายุ
+- 🗄️ **เชื่อมต่อ Airtable** — ใช้ Airtable เป็นฐานข้อมูลจริง
+- 📱 **รองรับมือถือและคอม** — Responsive + ติดตั้งเป็น PWA บน iPhone/Android ได้
 
-## Running locally
+## เทคโนโลยี
+
+- Next.js 14 (App Router) + TypeScript
+- Tailwind CSS + UI primitives สไตล์ shadcn
+- NextAuth (Credentials) + bcrypt
+- ชั้นข้อมูลแบบสลับได้: **Airtable** (จริง) หรือ **In-memory** (Demo)
+
+## เริ่มต้นใช้งาน
 
 ```bash
 cp .env.example .env
 npm install
-npx prisma migrate dev --name init
-npm run prisma:seed
 npm run dev
 ```
 
-Default login from the seed:
+เปิด http://localhost:3000 — ถ้ายังไม่ตั้งค่า Airtable ระบบจะใช้ **โหมด Demo**
+(ข้อมูลตัวอย่างในหน่วยความจำ) โดยอัตโนมัติ เข้าสู่ระบบด้วย:
 
 ```
-owner@example.com / lineup
+admin@stockya.local / 1234      (ผู้ดูแลระบบ)
+staff@stockya.local / 1234      (เภสัชกร)
 ```
 
-## Concepts
+> โหมด Demo: ข้อมูลจะรีเซ็ตเมื่อรีสตาร์ทเซิร์ฟเวอร์ — เหมาะสำหรับทดลองใช้งาน
+> เมื่อต้องการเก็บข้อมูลถาวร ให้ตั้งค่า Airtable ตามด้านล่าง
 
-### Standards
+## ตั้งค่า Airtable
 
-Each organization gets 25 standards. They rotate on a 25-day cycle. The seed
-ships placeholder standards in the Schulze register (quiet, professional) in
-both English and Thai — replace `bodyEn` / `bodyTh` in `prisma/seed.ts` with
-your own copy. Numbering 1–25 is stable; editing title or body does not move
-the rotation pointer.
+1. สร้าง **Base** ใหม่ใน Airtable แล้วสร้างตาราง 5 ตารางตามโครงสร้างนี้
+   (ชนิดฟิลด์ทั้งหมดใช้ **Single line text** ได้ ยกเว้นที่ระบุ):
 
-### Today
+   **Users**
+   | ฟิลด์ | ชนิด |
+   |---|---|
+   | Email | Single line text |
+   | Name | Single line text |
+   | PasswordHash | Single line text (bcrypt hash) |
+   | Role | Single line text (`admin` / `staff`) |
 
-The Today screen pre-builds a `LineupSession` for the current calendar day. It
-shows:
+   **Warehouses** — `Name`, `Code`, `Location`, `Note`
 
-- Today's standard (large heading + full body)
-- The Munger Inversion prompt
-- An attendance row per active team member (one tap to toggle)
-- An "add a story" form
-- A consensus answer field
-- A "finish lineup" action
+   **Drugs** — `Code`, `Name`, `GenericName`, `Unit`, `Category`, `MinQty` (Number), `Note`
 
-"Finish lineup" composes a one-line summary, stores it on the session, and
-attempts to email and/or LINE-notify the owner. Delivery is best-effort: a
-missing SMTP or LINE token does not fail the action.
+   **Lots** — `DrugId`, `WarehouseId`, `LotNo`, `ExpiryDate` (Date),
+   `Quantity` (Number), `ReceivedDate` (Date), `Note`
+   > `DrugId` / `WarehouseId` เก็บเป็น **record id** ของตาราง Drugs/Warehouses (text)
 
-### Streak
+   **Transactions** — `Type` (`RECEIVE`/`ISSUE`/`TRANSFER`/`ADJUST`),
+   `DrugId`, `LotNo`, `FromWarehouseId`, `ToWarehouseId`, `Quantity` (Number),
+   `Note`, `UserEmail`, `CreatedAt` (Date with time)
 
-Streak = consecutive calendar days ending today (or yesterday if today is not
-yet finished) on which a lineup was finished. Displayed on the Today screen as
-`N lineups in a row`.
+2. สร้าง Personal Access Token ที่ https://airtable.com/create/tokens
+   ให้สิทธิ์ `data.records:read`, `data.records:write` กับ Base ที่สร้าง
 
-### Rotation and skipping
+3. ใส่ค่าใน `.env`:
 
-Each finished, non-skipped session advances the rotation pointer by one. A
-skipped session does not advance it, so tomorrow returns to the same standard.
+   ```env
+   AIRTABLE_TOKEN="patXXXXXXXX"
+   AIRTABLE_BASE_ID="appXXXXXXXX"
+   ```
 
-### History and coverage
+4. (ทางเลือก) เติมข้อมูลตัวอย่าง + บัญชีผู้ใช้เข้า Airtable:
 
-The History view lists past sessions in reverse-chronological order. Below it,
-a `Standards coverage` table shows when each standard was last discussed.
-Anything untouched for 30 days or more is flagged.
+   ```bash
+   npm run airtable:setup
+   ```
 
-### Localization
+เมื่อมี `AIRTABLE_TOKEN` และ `AIRTABLE_BASE_ID` ครบ ระบบจะสลับมาใช้ Airtable ทันที
 
-`Organization.language` is `"en"` or `"th"`. The Standard model carries both
-title and body for both languages; UI copy lives in `src/lib/i18n.ts`. Toggle
-the field in the database to switch the organization's language.
+## หลักการ FIFO/FEFO
 
-## Billing / tier model (data only)
+เมื่อ **เบิกออก** หรือ **ย้ายคลัง** ระบบจะเลือก Lot ให้อัตโนมัติโดย:
 
-`Organization.tier` and `Organization.memberCap` exist in the schema, and
-`User.isCoach` exists for cross-org read access by the framework's author.
-There is no billing UI yet — these fields are deliberately reserved for the
-paid-tier work.
+1. เรียงตาม **วันหมดอายุ** จากน้อยไปมาก (หมดอายุก่อน–ออกก่อน)
+2. ถ้าวันหมดอายุเท่ากัน เรียงตาม **วันรับเข้า**
+3. **ข้าม Lot ที่หมดอายุแล้ว** (ต้องจัดการแยกผ่านการปรับปรุง/ทำลาย)
 
-- `free` — single org, up to 5 active team members.
-- `team` — single org, unlimited members.
-- `owner_multi` — single owner running multiple organizations.
-- `coach` — adds a designated coach user with read access across all orgs.
+ถ้าจำนวนไม่พอ ระบบจะปฏิเสธพร้อมแจ้งจำนวนที่ขาด
 
-Member-cap enforcement is intended to live in application code at the
-`TeamMember`-create boundary; the cap is stored, not enforced.
+## การตั้งค่าแจ้งเตือนหมดอายุ
 
-## File map
+ปรับใน `.env`:
+
+```env
+EXPIRY_WARN_DAYS="90"       # เริ่มเตือน "ใกล้หมดอายุ" เมื่อเหลือ ≤ 90 วัน
+EXPIRY_CRITICAL_DAYS="30"   # เตือน "ใกล้หมดอายุมาก" เมื่อเหลือ ≤ 30 วัน
+```
+
+## แผนผังหน้าจอ
+
+| เส้นทาง | หน้าที่ |
+|---|---|
+| `/signin` | เข้าสู่ระบบ |
+| `/` | ภาพรวม: สรุปสต๊อก แจ้งเตือนหมดอายุ สต๊อกต่ำ ทางลัด |
+| `/stock` | สต๊อกคงเหลือ แยกตามยา/คลัง/Lot |
+| `/receive` | รับยาเข้า (เพิ่ม Lot + วันหมดอายุ) |
+| `/issue` | เบิกยาออก (FIFO) |
+| `/transfer` | ย้ายคลัง (FIFO) |
+| `/alerts` | แจ้งเตือนยาหมดอายุ |
+| `/drugs` | จัดการทะเบียนยาและคลัง |
+| `/history` | ประวัติการเคลื่อนไหวทั้งหมด |
+
+## โครงสร้างไฟล์
 
 ```
-prisma/
-  schema.prisma         data model
-  seed.ts               25 default standards + demo org + owner login
 src/
   app/
-    api/auth/[...nextauth]/route.ts
-    signin/page.tsx
+    signin/page.tsx            หน้าเข้าสู่ระบบ
+    api/auth/[...nextauth]      NextAuth
     (app)/
-      layout.tsx        authenticated shell
-      page.tsx          Today
-      history/page.tsx  History + coverage
-      actions.ts        server actions
+      layout.tsx               เปลือกแอป + เมนู + ป้ายแจ้งเตือน
+      page.tsx                 ภาพรวม
+      stock|receive|issue|transfer|alerts|drugs|history/page.tsx
+      actions.ts               server actions (รับเข้า/เบิก/ย้าย/เพิ่มยา/เพิ่มคลัง)
   components/
-    ui/                 button, card, input, textarea, label
-    today/              attendance row, story form, consensus, skip, finish
-    page-header.tsx
-    sign-out-button.tsx
-    streak.tsx
+    app-nav.tsx                เมนูแบบ responsive
+    forms/                     ฟอร์มฝั่ง client (useFormState)
+    ui/                        button, card, input, select, textarea, badge, label
+    expiry-badge.tsx
   lib/
-    auth.ts             NextAuth options
-    coverage.ts         standards coverage + 30-day stale flag
-    i18n.ts             en/th dictionary
-    prisma.ts           prisma singleton
-    rotation.ts         standard selection across 25-day cycle
-    session-today.ts    get-or-create today's LineupSession
-    session.ts          server-side auth helpers
-    streak.ts           streak computation
-    summary.ts          compose + deliver end-of-lineup summary
-    utils.ts            cn, date helpers
+    types.ts                   โครงสร้างข้อมูล
+    config.ts                  อ่าน env (Airtable, วันแจ้งเตือน)
+    auth.ts / session.ts       NextAuth + helper
+    expiry.ts                  คำนวณสถานะหมดอายุ
+    format.ts                  ฟอร์แมตวันที่/ตัวเลขแบบไทย
+    stock.ts                   ตรรกะหลัก: FIFO, รับเข้า, เบิก, ย้าย, สรุป
+    store/
+      index.ts                 เลือก backend (Airtable หรือ Demo)
+      types.ts                 interface ชั้นข้อมูล
+      memory.ts                ฐานข้อมูล Demo ในหน่วยความจำ
+      airtable.ts              ชั้นข้อมูล Airtable
+      airtable-client.ts       REST client ของ Airtable
+      seed.ts                  ข้อมูลตัวอย่าง
+scripts/
+  airtable-setup.ts            เติมข้อมูลตัวอย่างเข้า Airtable
 ```
 
-## Installing on iPhone
+## ติดตั้งเป็นแอปบนมือถือ (PWA)
 
-Lineup is a Progressive Web App. Once installed, it launches full-screen with
-no Safari chrome, has its own home-screen icon, and respects the iPhone's
-notch and home indicator.
-
-Three steps:
-
-1. Run the dev server bound to your LAN:
-   ```bash
-   npm run dev -- -H 0.0.0.0
-   ```
-2. Set `NEXTAUTH_URL` in `.env` to your laptop's LAN URL (e.g.
-   `http://192.168.1.42:3000`) and add the same origin to
-   `experimental.serverActions.allowedOrigins` in `next.config.mjs`.
-3. On your iPhone, open the URL in Safari. Tap the Share button, then
-   "Add to Home Screen." Tap the new Lineup icon on your home screen.
-
-For production install on a real device over the public internet, deploy to
-Vercel or any HTTPS host — iOS will only treat the app as installable from a
-secure origin.
-
-### What "native" means here
-
-The PWA path stays on the existing Next.js code and adds:
-
-- `src/app/manifest.ts` — web app manifest (paper/ink theme, standalone display)
-- `src/app/icon.tsx` and `src/app/apple-icon.tsx` — icons generated at build
-  time via `ImageResponse` (no PNG assets to manage)
-- `apple-mobile-web-app-*` and `viewport-fit=cover` meta in the root layout
-- `env(safe-area-inset-*)` padding so the header sits below the notch and the
-  footer clears the home indicator
-- Sticky header with translucent backdrop-blur (iOS-style)
-- `src/lib/haptics.ts` — tap feedback wired into attendance toggle, finish,
-  skip, and story save (no-op on iOS Safari, which lacks the Vibration API,
-  but kept thin so we can swap in Capacitor Haptics later)
-- An iOS-only "Add to Home Screen" hint that disappears once installed
-
-This will not appear in the App Store. If you later want TestFlight / App
-Store distribution, wrap this codebase with Capacitor — most of the iOS polish
-above will transfer directly.
-
-## Voice
-
-Quiet, professional, slightly serious. No emojis. No motivational quotes.
-Hotel stationery, not productivity app.
+เปิดเว็บใน Safari (iPhone) หรือ Chrome (Android) → เมนูแชร์ →
+“เพิ่มไปยังหน้าจอโฮม” แอปจะเปิดแบบเต็มจอเหมือนแอปเนทีฟ
+(ต้องรันผ่าน HTTPS สำหรับการติดตั้งบนอุปกรณ์จริง เช่น deploy ขึ้น Vercel)

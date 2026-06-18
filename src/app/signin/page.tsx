@@ -1,13 +1,20 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { t } from "@/lib/i18n";
 
 export default function SignInPage() {
+  return (
+    <Suspense>
+      <SignInForm />
+    </Suspense>
+  );
+}
+
+function SignInForm() {
   const router = useRouter();
   const search = useSearchParams();
   const callbackUrl = search.get("callbackUrl") || "/";
@@ -15,7 +22,6 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const locale = "en"; // sign-in is pre-org
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,7 +35,7 @@ export default function SignInPage() {
     });
     setPending(false);
     if (res?.error) {
-      setError(t(locale, "signIn.error"));
+      setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
       return;
     }
     router.push(res?.url || "/");
@@ -40,18 +46,19 @@ export default function SignInPage() {
     <main className="min-h-screen flex items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-10">
-          <h1 className="font-serif text-4xl">{t(locale, "app.name")}</h1>
+          <h1 className="font-serif text-4xl text-accent">StockYa</h1>
           <div className="text-[0.72rem] uppercase tracking-wider3 text-muted mt-2">
-            {t(locale, "app.tagline")}
+            ระบบบริหารสต๊อกยา
           </div>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4 bg-paper border border-ink/15 p-8">
-          <h2 className="font-serif text-2xl text-center mb-2">
-            {t(locale, "signIn.heading")}
-          </h2>
+        <form
+          onSubmit={onSubmit}
+          className="space-y-4 bg-paper border border-ink/15 p-8"
+        >
+          <h2 className="font-serif text-2xl text-center mb-2">เข้าสู่ระบบ</h2>
           <div className="space-y-1.5">
-            <Label htmlFor="email">{t(locale, "signIn.email")}</Label>
+            <Label htmlFor="email">อีเมล</Label>
             <Input
               id="email"
               type="email"
@@ -62,7 +69,7 @@ export default function SignInPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password">{t(locale, "signIn.password")}</Label>
+            <Label htmlFor="password">รหัสผ่าน</Label>
             <Input
               id="password"
               type="password"
@@ -78,10 +85,14 @@ export default function SignInPage() {
             </p>
           )}
           <Button type="submit" className="w-full" disabled={pending}>
-            {t(locale, "signIn.submit")}
+            {pending ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}
           </Button>
-          <p className="text-center text-xs text-muted pt-2">
-            {t(locale, "signIn.hint")}
+          <p className="text-center text-xs text-muted pt-2 leading-relaxed">
+            บัญชีทดลอง (โหมด Demo)
+            <br />
+            admin@stockya.local · staff@stockya.local
+            <br />
+            รหัสผ่าน: 1234
           </p>
         </form>
       </div>

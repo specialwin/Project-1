@@ -1,7 +1,5 @@
 import { ImageResponse } from "next/og";
 
-// Apple touch icon — iOS uses 180×180 and applies its own mask/rounding.
-// We render with a solid background so the rounded corners stay clean.
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 export const runtime = "edge";
@@ -17,47 +15,30 @@ export default function AppleIcon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "Georgia, serif",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            color: "#1c1a17",
-            lineHeight: 1,
-          }}
-        >
+        <div style={{ display: "flex", position: "relative" }}>
           <div
             style={{
-              fontSize: 124,
-              fontStyle: "italic",
-              fontWeight: 500,
-              letterSpacing: "-0.04em",
-            }}
-          >
-            L
-          </div>
-          <div
-            style={{
-              marginTop: 10,
-              height: 1,
-              width: 80,
-              background: "#1c1a17",
-              opacity: 0.5,
+              width: 96,
+              height: 32,
+              background: "#7a1f1f",
+              position: "absolute",
+              top: 32,
+              left: 0,
             }}
           />
           <div
             style={{
-              marginTop: 6,
-              fontSize: 14,
-              letterSpacing: "0.3em",
-              textTransform: "uppercase",
+              width: 32,
+              height: 96,
+              background: "#7a1f1f",
+              position: "absolute",
+              top: 0,
+              left: 32,
             }}
-          >
-            Lineup
-          </div>
+          />
+          <div style={{ width: 96, height: 96 }} />
         </div>
       </div>
     ),
