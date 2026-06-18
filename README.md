@@ -2,6 +2,31 @@
 
 เว็บแอปจัดการสต๊อกยาสำหรับโรงพยาบาล/คลินิก/ร้านยา ใช้งานได้ทั้งบนมือถือและคอมพิวเตอร์
 
+## 🚀 Deploy ดู Preview บน Vercel (คลิกเดียว)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fspecialwin%2FProject-1%2Ftree%2Fclaude%2Ffriendly-cray-lzrd28&env=NEXTAUTH_SECRET&envDescription=key%20%E0%B8%AA%E0%B8%B8%E0%B9%88%E0%B8%A1%E0%B8%AA%E0%B8%B3%E0%B8%AB%E0%B8%A3%E0%B8%B1%E0%B8%9A%20NextAuth%20(%E0%B8%AA%E0%B8%A3%E0%B9%89%E0%B8%B2%E0%B8%87%E0%B8%94%E0%B9%89%E0%B8%A7%E0%B8%A2%20openssl%20rand%20-base64%2032)&project-name=stockya&repository-name=stockya)
+
+กดปุ่มด้านบน → ระบบจะให้กรอก env **`NEXTAUTH_SECRET`** เพียงตัวเดียว → กด Deploy
+ก็จะได้ลิงก์ `https://...vercel.app` ที่เปิดบนมือถือ/คอมได้ทันที (เริ่มต้นเป็นโหมด Demo)
+
+ค่า `NEXTAUTH_SECRET` ใช้คำสั่งนี้สร้าง (หรือใส่ค่าสุ่มอะไรก็ได้ยาว ๆ):
+
+```bash
+openssl rand -base64 32
+```
+
+> ต้องการเก็บข้อมูลถาวร? เพิ่ม env `AIRTABLE_TOKEN` และ `AIRTABLE_BASE_ID`
+> ในหน้า Settings → Environment Variables ของ Vercel (ดูหัวข้อ “ตั้งค่า Airtable”)
+>
+> หมายเหตุ: บน Vercel (serverless) โหมด Demo จะไม่เก็บข้อมูลถาวรระหว่างคำขอ
+> — ใช้ดู UI ได้ แต่สำหรับใช้งานจริงควรต่อ Airtable
+
+### Deploy จาก repo เดิม (ไม่สร้าง repo ใหม่)
+
+ถ้าไม่อยาก clone เป็น repo ใหม่: เข้า https://vercel.com/new → **Import** repo
+`specialwin/Project-1` → เลือก branch `claude/friendly-cray-lzrd28` →
+เพิ่ม Environment Variable `NEXTAUTH_SECRET` → **Deploy**
+
 ## ความสามารถ
 
 - 🔐 **หน้าเข้าสู่ระบบ** — ยืนยันตัวตนด้วยอีเมล/รหัสผ่าน (NextAuth)
