@@ -7,13 +7,18 @@
 > ⚠️ Airtable ไม่มี API สำหรับสร้าง Automation — ต้องตั้งค่าเองในหน้าเว็บ Airtable
 > โดยใช้สคริปต์ในโฟลเดอร์นี้ (คัดลอกไปวางในแอ็กชัน “Run a script”)
 
-แนวคิด: **Movements = ใบสั่งงาน**, **Lots = สต๊อกจริง**, **Transactions = บัญชีแยกประเภท (เดินรายการ)**
+มี 2 ทางให้สั่งงาน — ใช้ทางใดทางหนึ่งหรือทั้งคู่:
+- **Movements** = ใบงานเดี่ยว (รับเข้า/เบิก/ย้าย ทีละรายการ)
+- **Orders + Order Items** = ใบสั่งหลายรายการ (รายการสั่งซื้อเข้า / ใบเบิกจ่ายออก)
+
+ทั้งคู่เขียนลง **Lots = สต๊อกจริง** และ **Transactions = บัญชีเดินรายการ** ชุดเดียวกัน
 
 ```
-ผู้ใช้สร้างแถวใน Movements (Type = Receive/Issue/Transfer, Status = New)
+[A] Movements (Type=Receive/Issue/Transfer, Status=New)
+[B] Orders (Type=Issue/Purchase, Status=Confirmed) + Order Items หลายรายการ
         │  (Automation trigger)
         ▼
-   Run a script  →  อ่าน/แก้ Lots ตาม FIFO  →  สร้าง Transactions  →  ตั้ง Status = Done/Error + Result
+   Run a script → ตัด/เพิ่ม Lots ตาม FIFO → สร้าง Transactions → ตั้ง Status=Done/Error + Result
 ```
 
 ---
@@ -59,9 +64,34 @@
 | Quantity | Number |
 | Note | Long text |
 | Movement | Link → Movements |
+| Order | Link → Orders |
 | Created At | Created time |
 
-### Movements  ← ใบสั่งงาน (ผู้ใช้กรอกที่นี่ / ผ่าน Form / Interface)
+### Orders  ← หัวใบสั่ง (รายการสั่งซื้อ / ใบเบิก)
+| ฟิลด์ | ชนิด | หมายเหตุ |
+|---|---|---|
+| Order No | Autonumber | เลขที่ใบ (Airtable สร้างให้) |
+| Type | Single select: `Issue` `Purchase` | `Issue`=เบิก/จ่ายออก (ตัดสต๊อก), `Purchase`=สั่งซื้อเข้า (เพิ่มสต๊อก) |
+| Warehouse | Link → Warehouses | คลังที่ตัด (Issue) หรือรับเข้า (Purchase) |
+| Party | Single line text | ผู้ขอเบิก (Issue) หรือผู้ขาย/Supplier (Purchase) |
+| Order Date | Date | วันที่ |
+| Status | Single select: `Draft` `Confirmed` `Done` `Error` | ตั้งเป็น `Confirmed` เพื่อสั่งให้ตัด/เพิ่มสต๊อก |
+| Result | Long text | สคริปต์เขียนผลกลับ |
+| Order Items | Link → Order Items | (เกิดอัตโนมัติจากการลิงก์ฝั่ง Order Items) |
+
+### Order Items  ← รายการในใบสั่ง (1 ใบมีได้หลายรายการ)
+| ฟิลด์ | ชนิด | ใช้ตอน |
+|---|---|---|
+| Order | Link → Orders | ทุกรายการ |
+| Drug | Link → Drugs | ทุกรายการ |
+| Quantity | Number | ทุกรายการ |
+| Lot | Link → Lots | (ทางเลือก) เลือกล็อตเองตอน Issue |
+| Lot No | Single line text | Purchase |
+| Expiry Date | Date | Purchase |
+| Note | Long text | หมายเหตุ |
+| Line Result | Long text | สคริปต์เขียนผลรายรายการ |
+
+### Movements  ← ใบสั่งงานเดี่ยว (ทางเลือก — ใช้คู่กับ Orders หรือใช้แทนก็ได้)
 | ฟิลด์ | ชนิด | ใช้ตอน |
 |---|---|---|
 | Type | Single select: `Receive` `Issue` `Transfer` | ทุกใบ |
@@ -80,15 +110,21 @@
 
 ---
 
-## 2) ตั้งค่า Automation (ทำ 3 ตัว)
+## 2) ตั้งค่า Automation
 
-ทำเหมือนกันทั้ง 3 ตัว ต่างกันแค่เงื่อนไข Type และไฟล์สคริปต์:
+แต่ละตัวใช้ trigger "When record matches conditions" + action "Run a script"
+ต่างกันแค่ **ตาราง trigger / เงื่อนไข / ไฟล์สคริปต์**:
 
-| Automation | เงื่อนไข Trigger | สคริปต์ |
-|---|---|---|
-| รับเข้า | Status = `New` และ Type = `Receive` | `01-receive.js` |
-| เบิกออก | Status = `New` และ Type = `Issue` | `02-issue.js` |
-| ย้ายคลัง | Status = `New` และ Type = `Transfer` | `03-transfer.js` |
+| Automation | ตาราง trigger | เงื่อนไข | สคริปต์ |
+|---|---|---|---|
+| รับเข้า (เดี่ยว) | Movements | Status=`New` และ Type=`Receive` | `01-receive.js` |
+| เบิกออก (เดี่ยว) | Movements | Status=`New` และ Type=`Issue` | `02-issue.js` |
+| ย้ายคลัง (เดี่ยว) | Movements | Status=`New` และ Type=`Transfer` | `03-transfer.js` |
+| **ยืนยันใบสั่ง** | **Orders** | **Status=`Confirmed`** | **`05-order-confirm.js`** |
+
+> ใช้ Movements (ใบงานเดี่ยว) หรือ Orders (ใบสั่งหลายรายการ) อย่างใดอย่างหนึ่ง
+> หรือทั้งคู่ก็ได้ — ทุกตัวเขียนลง Lots/Transactions ชุดเดียวกัน
+> **ใบสั่ง (Orders):** ตั้ง input `recordId` = Airtable record ID ของ **Order**
 
 ขั้นตอน (ต่อ 1 Automation):
 
@@ -126,15 +162,32 @@
 
 ---
 
-## 4) ส่วนติดต่อผู้ใช้ (UI)
+## 4) หน้ารายการสั่งซื้อ (Orders) ด้วย Airtable Interface
 
-เลือกได้ตามสะดวก — ทุกทางเขียนลงตาราง Movements เหมือนกัน:
+ทำหน้าจอให้ผู้ใช้สร้างใบสั่ง เพิ่มรายการยา แล้วกดยืนยันให้ตัด/เพิ่มสต๊อก:
 
-- **Airtable Form** — ทำฟอร์ม "เบิกยา/ย้ายคลัง/รับเข้า" จากตาราง Movements
-  (ผู้ใช้ภายนอกกรอกได้ ไม่ต้องเข้าถึง base)
-- **Airtable Interfaces** — ทำหน้า Dashboard + ปุ่มสร้าง record ดูสวยงาม
-  ใช้ระบบล็อกอินของ Airtable เอง (ตอบโจทย์ "หน้าล็อกอิน")
-- **เว็บแอป StockYa** (ในโปรเจกต์นี้) — ถ้ายังอยากใช้เว็บแอปคู่กัน ดูหมายเหตุด้านล่าง
+1. ไปแท็บ **Interfaces** → **Start building** → เลือกเลย์เอาต์ **Record review**
+   หรือ **Blank**
+2. **หน้ารายการใบสั่ง:** วาง element **List** ผูกกับตาราง **Orders**
+   - แสดงคอลัมน์ Order No, Type, Warehouse, Status, Order Date
+   - เพิ่ม filter ปุ่มสลับดู `Draft` / `Done` ได้
+3. **ปุ่มสร้างใบใหม่:** เพิ่ม element **Button** → action **Create record** (ตาราง Orders)
+   ตั้งค่าเริ่มต้น Status = `Draft`
+4. **หน้ารายละเอียดใบสั่ง (record detail):**
+   - แสดงฟิลด์หัวใบ: Type, Warehouse, Party, Order Date, Status, Result
+   - วาง element **Grid/List ของ Order Items** (linked records ของใบนั้น)
+     ให้ผู้ใช้ **+ เพิ่มรายการยา** (Drug, Quantity, และ Lot No/Expiry ถ้าเป็น Purchase)
+5. **ปุ่มยืนยัน:** ให้ผู้ใช้เปลี่ยนฟิลด์ **Status เป็น `Confirmed`**
+   (จะใช้ element Button + action *Update record* ตั้ง Status=`Confirmed` ก็ได้)
+   → Automation `05-order-confirm.js` จะทำงานทันที ตัด/เพิ่มสต๊อกตามชนิดใบ
+   แล้วเปลี่ยน Status เป็น `Done` (หรือ `Error` พร้อมเหตุผลในช่อง Result)
+
+> ขั้นตอนใช้งานจริง: สร้างใบ (Draft) → เพิ่มรายการยา → เปลี่ยนเป็น Confirmed →
+> ระบบตัด/เพิ่มสต๊อกอัตโนมัติ → ดูผลที่ Result และดูล็อตที่ถูกตัดได้ใน Transactions
+
+### ทางเลือก UI อื่น
+- **Airtable Form** — ฟอร์มกรอกใบงานเดี่ยว (Movements) สำหรับคนนอก
+- **เว็บแอป StockYa** (ในโปรเจกต์นี้) — ใช้คู่กันได้ ดูหมายเหตุด้านล่าง
 
 ---
 
