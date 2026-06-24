@@ -1,9 +1,10 @@
 /**
  * StockYa · Automation: ยืนยันใบสั่ง (ORDER) — ตัด/เพิ่มสต๊อกอัตโนมัติทั้งใบ
  * ------------------------------------------------------------------
- * ใบสั่ง 1 ใบ มีได้หลายรายการ (Order Items) และเป็นได้ 2 ชนิด:
- *   - Issue    = ใบเบิก/จ่ายออก  → ตัดสต๊อกตาม FIFO (ของออกจากคลัง)
- *   - Purchase = ใบสั่งซื้อเข้า   → เพิ่มสต๊อกเป็นล็อตใหม่ (ของเข้าคลัง)
+ * ใบสั่ง 1 ใบ มีได้หลายรายการ (Order Items) และเป็นได้ 3 ชนิด:
+ *   - Sale     = ขายหน้าร้าน (POS) → ตัดสต๊อกตาม FIFO (ของออกจากคลัง)
+ *   - Issue    = ใบเบิก/จ่ายออก    → ตัดสต๊อกตาม FIFO (เหมือน Sale)
+ *   - Purchase = ใบสั่งซื้อเข้า     → เพิ่มสต๊อกเป็นล็อตใหม่ (ของเข้าคลัง)
  *
  * Trigger: When record matches conditions
  *   Table = Orders
@@ -43,8 +44,10 @@ await (async () => {
 
   try {
     const typeName = (order.getCellValue("Type") || {}).name;
-    if (!["Purchase", "Issue"].includes(typeName))
-      throw new Error("Type ของใบสั่งต้องเป็น Purchase หรือ Issue");
+    const OUTBOUND = ["Sale", "Issue"]; // ตัดสต๊อกออก (FIFO)
+    if (![...OUTBOUND, "Purchase"].includes(typeName))
+      throw new Error("Type ของใบสั่งต้องเป็น Sale, Issue หรือ Purchase");
+    const isOutbound = OUTBOUND.includes(typeName);
 
     const wh = order.getCellValue("Warehouse");
     if (!wh || !wh.length) throw new Error("ยังไม่ได้เลือกคลัง (Warehouse)");
@@ -96,7 +99,7 @@ await (async () => {
       if (!qty || qty <= 0) throw new Error("จำนวนในรายการต้องมากกว่า 0");
       const drugId = drug[0].id;
 
-      if (typeName === "Issue") {
+      if (isOutbound) {
         // ตัดออกตาม FIFO (เลือกล็อตเองได้ผ่านฟิลด์ Lot)
         const manual = it.getCellValue("Lot");
         let cands = work.filter(
@@ -130,7 +133,7 @@ await (async () => {
             },
           });
         }
-        itemResults.push({ id: it.id, text: `เบิกออก ${qty} สำเร็จ` });
+        itemResults.push({ id: it.id, text: `ตัดสต๊อก ${qty} สำเร็จ` });
       } else {
         // Purchase — รับเข้าเป็นล็อต
         const lotNo = it.getCellValueAsString("Lot No").trim();
@@ -188,7 +191,7 @@ await (async () => {
 
     await setOrder(
       "Done",
-      `${typeName === "Issue" ? "เบิกจ่าย" : "รับเข้า"} ${items.length} รายการ สำเร็จ`,
+      `${isOutbound ? "ตัดจ่าย/ขาย" : "รับเข้า"} ${items.length} รายการ สำเร็จ`,
     );
     console.log("ORDER สำเร็จ");
   } catch (e) {

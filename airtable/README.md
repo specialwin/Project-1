@@ -36,6 +36,7 @@
 | Unit | Single line text |
 | Category | Single line text |
 | Min Qty | Number (integer) |
+| Price | Currency / Number — ราคาขายต่อหน่วย (สำหรับ POS) |
 | Note | Long text |
 
 ### Warehouses
@@ -71,11 +72,12 @@
 | ฟิลด์ | ชนิด | หมายเหตุ |
 |---|---|---|
 | Order No | Autonumber | เลขที่ใบ (Airtable สร้างให้) |
-| Type | Single select: `Issue` `Purchase` | `Issue`=เบิก/จ่ายออก (ตัดสต๊อก), `Purchase`=สั่งซื้อเข้า (เพิ่มสต๊อก) |
-| Warehouse | Link → Warehouses | คลังที่ตัด (Issue) หรือรับเข้า (Purchase) |
-| Party | Single line text | ผู้ขอเบิก (Issue) หรือผู้ขาย/Supplier (Purchase) |
+| Type | Single select: `Sale` `Issue` `Purchase` | `Sale`=ขายหน้าร้าน POS (ตัดสต๊อก), `Issue`=เบิก/จ่ายออก (ตัดสต๊อก), `Purchase`=สั่งซื้อเข้า (เพิ่มสต๊อก) |
+| Warehouse | Link → Warehouses | คลังที่ตัด (Sale/Issue) หรือรับเข้า (Purchase) |
+| Party | Single line text | ลูกค้า (Sale) / ผู้ขอเบิก (Issue) / ผู้ขาย (Purchase) |
 | Order Date | Date | วันที่ |
 | Status | Single select: `Draft` `Confirmed` `Done` `Error` | ตั้งเป็น `Confirmed` เพื่อสั่งให้ตัด/เพิ่มสต๊อก |
+| Total | Rollup → SUM(Order Items.Line Total) | ยอดรวม (POS) — ไม่บังคับ |
 | Result | Long text | สคริปต์เขียนผลกลับ |
 | Order Items | Link → Order Items | (เกิดอัตโนมัติจากการลิงก์ฝั่ง Order Items) |
 
@@ -85,7 +87,9 @@
 | Order | Link → Orders | ทุกรายการ |
 | Drug | Link → Drugs | ทุกรายการ |
 | Quantity | Number | ทุกรายการ |
-| Lot | Link → Lots | (ทางเลือก) เลือกล็อตเองตอน Issue |
+| Unit Price | Currency / Number | (POS) ราคาต่อหน่วย — ดึงค่าเริ่มจาก Drug.Price ด้วย Lookup ได้ |
+| Line Total | Formula: `{Quantity} * {Unit Price}` | (POS) ยอดต่อรายการ — ไม่บังคับ |
+| Lot | Link → Lots | (ทางเลือก) เลือกล็อตเองตอน Sale/Issue |
 | Lot No | Single line text | Purchase |
 | Expiry Date | Date | Purchase |
 | Note | Long text | หมายเหตุ |
@@ -184,6 +188,18 @@
 
 > ขั้นตอนใช้งานจริง: สร้างใบ (Draft) → เพิ่มรายการยา → เปลี่ยนเป็น Confirmed →
 > ระบบตัด/เพิ่มสต๊อกอัตโนมัติ → ดูผลที่ Result และดูล็อตที่ถูกตัดได้ใน Transactions
+
+### โหมดขายหน้าร้าน (POS)
+ใช้ใบ **Type = `Sale`** สำหรับการขาย ตัดสต๊อกแบบ FIFO เหมือน Issue แต่เน้นความเร็ว:
+
+- ที่ **Order Items** ตั้ง `Unit Price` ให้ **Lookup** ค่าจาก `Drug.Price` อัตโนมัติ
+  แล้ว `Line Total` = `Quantity × Unit Price` ส่วน `Orders.Total` = Rollup รวมทุกบรรทัด
+  → ได้ยอดบิลอัตโนมัติเหมือนเครื่อง POS
+- ทำหน้า Interface แบบ **Record review**: ฝั่งซ้ายเป็นรายการบิล (Sale) ฝั่งขวาเป็น
+  ตะกร้าสินค้า (Order Items) + ยอดรวม + ปุ่ม **“ปิดการขาย”** (Update record → Status=`Confirmed`)
+- พอกดปิดการขาย → ตัดสต๊อกตาม FIFO ทันที + ขึ้นยอดรวมในช่อง Total + ลงบัญชี Transactions
+- อยากให้ตัดทันทีตอนสร้างบิลโดยไม่ต้องมีปุ่ม: ตั้ง trigger ของ Automation เป็น
+  Type=`Sale` และ Status=`Confirmed` แล้วให้ฟอร์ม/Interface ตั้ง Status เริ่มต้นเป็น `Confirmed`
 
 ### ทางเลือก UI อื่น
 - **Airtable Form** — ฟอร์มกรอกใบงานเดี่ยว (Movements) สำหรับคนนอก
