@@ -114,6 +114,12 @@
 
 ---
 
+> ✅ **ตรวจ schema อัตโนมัติ:** หลังสร้างตาราง/ฟิลด์ครบแล้ว เปิด Extensions →
+> Scripting → วาง `06-check-schema.js` → Run จะบอกว่ายังขาดตาราง/ฟิลด์/ตัวเลือก
+> single-select ไหนหรือสะกดผิด ก่อนไปตั้ง Automation
+
+---
+
 ## 2) ตั้งค่า Automation
 
 แต่ละตัวใช้ trigger "When record matches conditions" + action "Run a script"
