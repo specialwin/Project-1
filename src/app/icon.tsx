@@ -24,39 +24,44 @@ export default function Icon() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            color: "#1c1a17",
+            color: "#7a1f1f",
             lineHeight: 1,
           }}
         >
-          <div
-            style={{
-              fontSize: 320,
-              fontStyle: "italic",
-              fontWeight: 500,
-              letterSpacing: "-0.04em",
-            }}
-          >
-            L
+          {/* กากบาทเครื่องหมายการแพทย์ */}
+          <div style={{ display: "flex", position: "relative" }}>
+            <div
+              style={{
+                width: 260,
+                height: 86,
+                background: "#7a1f1f",
+                position: "absolute",
+                top: 87,
+                left: 0,
+              }}
+            />
+            <div
+              style={{
+                width: 86,
+                height: 260,
+                background: "#7a1f1f",
+                position: "absolute",
+                top: 0,
+                left: 87,
+              }}
+            />
+            <div style={{ width: 260, height: 260 }} />
           </div>
           <div
             style={{
-              marginTop: 28,
-              height: 2,
-              width: 220,
-              background: "#1c1a17",
-              opacity: 0.5,
-            }}
-          />
-          <div
-            style={{
-              marginTop: 14,
-              fontSize: 44,
-              letterSpacing: "0.32em",
+              marginTop: 40,
+              fontSize: 56,
+              letterSpacing: "0.24em",
               textTransform: "uppercase",
               color: "#1c1a17",
             }}
           >
-            Lineup
+            StockYa
           </div>
         </div>
       </div>

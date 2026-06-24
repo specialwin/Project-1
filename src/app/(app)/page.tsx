@@ -1,178 +1,187 @@
-import { getUserOrRedirect, getOrganizationForUser } from "@/lib/session";
-import { getOrCreateTodaySession } from "@/lib/session-today";
-import { computeStreak } from "@/lib/streak";
-import { asLocale, t } from "@/lib/i18n";
-import { Card, CardContent, CardHeader, SectionLabel } from "@/components/ui/card";
-import { Streak } from "@/components/streak";
-import { AttendanceRow } from "@/components/today/attendance-row";
-import { StoryForm } from "@/components/today/story-form";
-import { ConsensusField } from "@/components/today/consensus-field";
-import { SkipToggle } from "@/components/today/skip-toggle";
-import { FinishButton } from "@/components/today/finish-button";
+import Link from "next/link";
+import {
+  PackagePlus,
+  PackageMinus,
+  ArrowLeftRight,
+  AlertTriangle,
+  Boxes,
+} from "lucide-react";
+import { Card, CardContent, SectionLabel } from "@/components/ui/card";
+import { ExpiryBadge } from "@/components/expiry-badge";
+import {
+  getDrugStockSummary,
+  getExpiringLots,
+  getRefMaps,
+} from "@/lib/stock";
+import { formatDate, formatNumber } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-export default async function TodayPage() {
-  const user = await getUserOrRedirect();
-  const org = await getOrganizationForUser(user);
-  const locale = asLocale(org.language);
+function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "accent" | "flag";
+}) {
+  return (
+    <Card>
+      <CardContent className="py-4">
+        <SectionLabel>{label}</SectionLabel>
+        <div
+          className={
+            "mt-1 font-serif text-3xl numeric " +
+            (tone === "accent"
+              ? "text-accent"
+              : tone === "flag"
+                ? "text-flag"
+                : "text-ink")
+          }
+        >
+          {value}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-  const session = await getOrCreateTodaySession(org.id);
-  const streak = await computeStreak(org.id);
+const quickActions = [
+  { href: "/receive", label: "รับเข้า", icon: PackagePlus },
+  { href: "/issue", label: "เบิกออก", icon: PackageMinus },
+  { href: "/transfer", label: "ย้ายคลัง", icon: ArrowLeftRight },
+];
 
-  const finished = !!session.finishedAt;
-  const standard = session.standard;
-  const standardTitle =
-    !standard
-      ? null
-      : locale === "th"
-        ? standard.titleTh
-        : standard.titleEn;
-  const standardBody =
-    !standard
-      ? null
-      : locale === "th"
-        ? standard.bodyTh
-        : standard.bodyEn;
+export default async function DashboardPage() {
+  const [summary, expiring, { warehouses }] = await Promise.all([
+    getDrugStockSummary(),
+    getExpiringLots(),
+    getRefMaps(),
+  ]);
 
-  const dateLabel = session.date.toLocaleDateString(
-    locale === "th" ? "th-TH" : "en-US",
-    { weekday: "long", year: "numeric", month: "long", day: "numeric" },
+  const belowMin = summary.filter((s) => s.belowMin);
+  const expiredOrCritical = expiring.filter(
+    (e) => e.status === "expired" || e.status === "critical",
   );
 
   return (
-    <div className="space-y-10 max-w-3xl mx-auto">
-      <section className="flex items-end justify-between gap-6 flex-wrap">
-        <div>
-          <SectionLabel>{dateLabel}</SectionLabel>
-          <h1 className="font-serif text-3xl mt-1">
-            {t(locale, "today.heading")}
-          </h1>
-        </div>
-        <Streak count={streak} locale={locale} />
-      </section>
-
-      <div className="hairline" />
-
-      {/* Today's standard */}
-      <section>
-        <div className="flex items-center justify-between">
-          <SectionLabel>{t(locale, "today.standardLabel")}</SectionLabel>
-          {standard && (
-            <SkipToggle locale={locale} skipped={session.standardSkipped} />
-          )}
-        </div>
-
-        {!standard && (
-          <p className="mt-3 text-muted italic">
-            {t(locale, "today.standardEmpty")}
-          </p>
-        )}
-
-        {standard && (
-          <div
-            className={
-              session.standardSkipped
-                ? "opacity-40 mt-3"
-                : "mt-3"
-            }
-          >
-            <div className="text-[0.72rem] uppercase tracking-wider3 text-muted">
-              No. {String(standard.number).padStart(2, "0")} of 25
-            </div>
-            <h2 className="font-serif text-3xl md:text-4xl leading-tight mt-2">
-              {standardTitle}
-            </h2>
-            <p className="mt-4 text-lg leading-relaxed text-ink/90">
-              {standardBody}
-            </p>
-            {session.standardSkipped && (
-              <p className="mt-4 text-sm italic text-muted">
-                {t(locale, "today.standardSkipped")}
-              </p>
-            )}
-          </div>
-        )}
-      </section>
-
-      <div className="hairline" />
-
-      {/* Munger inversion */}
-      <section>
-        <SectionLabel>{t(locale, "today.inversionTitle")}</SectionLabel>
-        <p className="mt-2 font-serif text-xl leading-relaxed">
-          {t(locale, "today.inversionPrompt")}
+    <div className="space-y-8">
+      <div>
+        <h1 className="font-serif text-3xl">ภาพรวมสต๊อก</h1>
+        <p className="text-muted mt-1">
+          สรุปสถานะคลังยา การแจ้งเตือน และทางลัดการทำงาน
         </p>
+      </div>
 
-        <div className="mt-6 space-y-4">
-          {session.stories.length === 0 ? null : (
-            <div>
-              <SectionLabel>{t(locale, "today.stories")}</SectionLabel>
-              <ul className="mt-2 space-y-3">
-                {session.stories.map((s) => (
-                  <li
-                    key={s.id}
-                    className="border-l-2 border-ink/30 pl-4 py-1"
-                  >
-                    {s.authorName && (
-                      <div className="text-[0.7rem] uppercase tracking-wider2 text-muted">
-                        {s.authorName}
-                      </div>
-                    )}
-                    <p className="leading-relaxed">{s.badExperience}</p>
-                    {s.preventionAnswer && (
-                      <p className="mt-1 text-sm text-ink/80 italic">
-                        {s.preventionAnswer}
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Stat label="รายการยา" value={formatNumber(summary.length)} />
+        <Stat label="คลัง" value={formatNumber(warehouses.length)} />
+        <Stat
+          label="ใกล้/เกินหมดอายุ"
+          value={formatNumber(expiring.length)}
+          tone={expiring.length ? "flag" : undefined}
+        />
+        <Stat
+          label="ต่ำกว่าจุดสั่งซื้อ"
+          value={formatNumber(belowMin.length)}
+          tone={belowMin.length ? "accent" : undefined}
+        />
+      </div>
 
-          {!finished && <StoryForm locale={locale} />}
+      {/* ทางลัด */}
+      <div className="grid grid-cols-3 gap-3">
+        {quickActions.map(({ href, label, icon: Icon }) => (
+          <Link key={href} href={href}>
+            <Card className="hover:bg-ink/5 transition-colors">
+              <CardContent className="py-5 flex flex-col items-center gap-2 text-center">
+                <Icon className="h-6 w-6 text-accent" />
+                <span className="text-sm">{label}</span>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
 
-          <ConsensusField
-            locale={locale}
-            initialValue={session.consensusAnswer}
-            disabled={finished}
-          />
+      {/* แจ้งเตือนหมดอายุ */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-serif text-2xl flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-flag" />
+            แจ้งเตือนยาหมดอายุ
+          </h2>
+          <Link
+            href="/alerts"
+            className="text-sm uppercase tracking-wider2 text-muted hover:text-ink"
+          >
+            ดูทั้งหมด
+          </Link>
         </div>
-      </section>
-
-      <div className="hairline" />
-
-      {/* Attendance */}
-      <section>
-        <SectionLabel>{t(locale, "today.attendance")}</SectionLabel>
-        {session.attendance.length === 0 ? (
-          <p className="mt-3 text-muted italic">{t(locale, "today.noTeam")}</p>
-        ) : (
-          <Card className="mt-3">
-            <CardContent className="p-0">
-              {session.attendance.map((a) => (
-                <AttendanceRow
-                  key={a.id}
-                  row={{
-                    attendanceId: a.id,
-                    teamMemberId: a.teamMemberId,
-                    name: a.teamMember.name,
-                    role: a.teamMember.role ?? null,
-                    present: a.present,
-                  }}
-                />
-              ))}
+        {expiring.length === 0 ? (
+          <Card>
+            <CardContent className="text-muted">
+              ไม่มียาใกล้หมดอายุในขณะนี้
             </CardContent>
           </Card>
+        ) : (
+          <Card>
+            <ul className="divide-y divide-ink/10">
+              {expiring.slice(0, 6).map((l) => (
+                <li
+                  key={l.id}
+                  className="px-6 py-3 flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate">{l.drug.name}</div>
+                    <div className="text-xs text-muted">
+                      Lot {l.lotNo} · {l.warehouse.name} · หมดอายุ{" "}
+                      {formatDate(l.expiryDate)} · คงเหลือ{" "}
+                      {formatNumber(l.quantity)} {l.drug.unit}
+                    </div>
+                  </div>
+                  <ExpiryBadge status={l.status} daysLeft={l.daysLeft} />
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+        {expiredOrCritical.length > 0 && (
+          <p className="text-sm text-accent">
+            มี {expiredOrCritical.length} Lot ที่หมดอายุแล้วหรือใกล้หมดอายุมาก
+            ควรตรวจสอบโดยด่วน
+          </p>
         )}
       </section>
 
-      <div className="hairline" />
-
-      <section className="finish-bar -mx-5 px-5 sm:-mx-6 sm:px-6 flex items-center justify-end gap-4">
-        <FinishButton locale={locale} finished={finished} />
-      </section>
+      {/* สต๊อกต่ำ */}
+      {belowMin.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-serif text-2xl flex items-center gap-2">
+            <Boxes className="h-5 w-5 text-accent" />
+            สต๊อกต่ำกว่าจุดสั่งซื้อ
+          </h2>
+          <Card>
+            <ul className="divide-y divide-ink/10">
+              {belowMin.map((s) => (
+                <li
+                  key={s.drug.id}
+                  className="px-6 py-3 flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate">{s.drug.name}</div>
+                    <div className="text-xs text-muted">
+                      จุดสั่งซื้อ {formatNumber(s.drug.minQty)} {s.drug.unit}
+                    </div>
+                  </div>
+                  <div className="text-accent numeric">
+                    {formatNumber(s.total)} {s.drug.unit}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </section>
+      )}
     </div>
   );
 }

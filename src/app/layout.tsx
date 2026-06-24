@@ -4,32 +4,27 @@ import { Providers } from "./providers";
 import { InstallHint } from "@/components/install-hint";
 
 export const metadata: Metadata = {
-  title: "Lineup",
-  description: "The daily fifteen minutes.",
-  applicationName: "Lineup",
+  title: "StockYa · ระบบสต๊อกยา",
+  description:
+    "จัดการสต๊อกยา เบิก-ย้ายคลัง ตาม Lot และ FIFO พร้อมแจ้งเตือนยาหมดอายุ",
+  applicationName: "StockYa",
   appleWebApp: {
     capable: true,
-    title: "Lineup",
+    title: "StockYa",
     statusBarStyle: "black-translucent",
   },
-  formatDetection: {
-    telephone: false,
-    email: false,
-    address: false,
-  },
+  formatDetection: { telephone: false, email: false, address: false },
   other: {
-    // Legacy meta tags some iOS versions still respect.
     "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "black-translucent",
-    "apple-mobile-web-app-title": "Lineup",
+    "apple-mobile-web-app-title": "StockYa",
   },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  // Allow user zoom for accessibility; PWA still feels native.
   maximumScale: 5,
   viewportFit: "cover",
   themeColor: [
@@ -44,7 +39,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="th">
       <body>
         <Providers>{children}</Providers>
         <InstallHint />
