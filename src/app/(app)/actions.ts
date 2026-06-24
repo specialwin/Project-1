@@ -74,6 +74,11 @@ const issueSchema = z.object({
   drugId: z.string().min(1, "เลือกยา"),
   warehouseId: z.string().min(1, "เลือกคลัง"),
   quantity: num.int().positive("จำนวนต้องมากกว่า 0"),
+  // เว้นว่าง = ตัดอัตโนมัติตาม FIFO
+  lotId: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v : undefined)),
   note: z.string().optional(),
 });
 

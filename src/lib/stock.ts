@@ -169,6 +169,8 @@ export interface IssueInput {
   drugId: string;
   warehouseId: string;
   quantity: number;
+  /** ระบุล็อตเอง (override FIFO) — เว้นว่างไว้ = ตัดอัตโนมัติตาม FIFO */
+  lotId?: string;
   note?: string;
   userEmail: string;
 }
@@ -178,16 +180,34 @@ export async function issueStock(input: IssueInput) {
   if (input.quantity <= 0) throw new Error("จำนวนต้องมากกว่า 0");
 
   const lots = await store.listLots();
-  const plan = allocateFifo(
-    lots,
-    input.drugId,
-    input.warehouseId,
-    input.quantity,
-  );
-  if (!plan.ok) {
-    throw new Error(
-      `สต๊อกไม่พอ ต้องการ ${input.quantity} แต่มีให้เบิกได้ ${plan.available} (ขาดอีก ${plan.shortBy})`,
-    );
+
+  let plan: AllocationResult;
+  if (input.lotId) {
+    // เลือกล็อตเอง — ตัดเฉพาะล็อตที่ระบุ
+    const lot = lots.find((l) => l.id === input.lotId);
+    if (!lot || lot.drugId !== input.drugId || lot.warehouseId !== input.warehouseId)
+      throw new Error("ไม่พบล็อตที่เลือกในคลังนี้");
+    if (daysUntil(lot.expiryDate) < 0)
+      throw new Error(`ล็อต ${lot.lotNo} หมดอายุแล้ว ไม่สามารถเบิกได้`);
+    if (lot.quantity < input.quantity)
+      throw new Error(
+        `ล็อต ${lot.lotNo} มีคงเหลือ ${lot.quantity} แต่ต้องการ ${input.quantity}`,
+      );
+    plan = {
+      allocations: [{ lot, take: input.quantity }],
+      available: lot.quantity,
+      requested: input.quantity,
+      shortBy: 0,
+      ok: true,
+    };
+  } else {
+    // อัตโนมัติตาม FIFO
+    plan = allocateFifo(lots, input.drugId, input.warehouseId, input.quantity);
+    if (!plan.ok) {
+      throw new Error(
+        `สต๊อกไม่พอ ต้องการ ${input.quantity} แต่มีให้เบิกได้ ${plan.available} (ขาดอีก ${plan.shortBy})`,
+      );
+    }
   }
 
   for (const { lot, take } of plan.allocations) {
@@ -315,6 +335,44 @@ export async function getAvailabilityMap(): Promise<Record<string, number>> {
     if (l.quantity <= 0 || daysUntil(l.expiryDate) < 0) continue;
     const key = `${l.drugId}::${l.warehouseId}`;
     map[key] = (map[key] ?? 0) + l.quantity;
+  }
+  return map;
+}
+
+export interface IssuableLot {
+  id: string;
+  lotNo: string;
+  expiryDate: string;
+  quantity: number;
+  daysLeft: number;
+}
+
+/**
+ * รายการล็อตที่เบิกได้ (ไม่หมดอายุ, คงเหลือ > 0) เรียงตาม FIFO
+ * สำหรับให้ผู้ใช้เลือกล็อตเองในฟอร์ม — key = `${drugId}::${warehouseId}`
+ */
+export async function getIssuableLotsMap(): Promise<
+  Record<string, IssuableLot[]>
+> {
+  const lots = await getStore().listLots();
+  const map: Record<string, IssuableLot[]> = {};
+  for (const l of lots) {
+    const daysLeft = daysUntil(l.expiryDate);
+    if (l.quantity <= 0 || daysLeft < 0) continue;
+    const key = `${l.drugId}::${l.warehouseId}`;
+    (map[key] ??= []).push({
+      id: l.id,
+      lotNo: l.lotNo,
+      expiryDate: l.expiryDate,
+      quantity: l.quantity,
+      daysLeft,
+    });
+  }
+  for (const key of Object.keys(map)) {
+    map[key].sort(
+      (a, b) =>
+        a.expiryDate.localeCompare(b.expiryDate) || b.quantity - a.quantity,
+    );
   }
   return map;
 }

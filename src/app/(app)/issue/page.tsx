@@ -1,13 +1,18 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { IssueForm } from "@/components/forms/issue-form";
-import { getAvailabilityMap, getRefMaps } from "@/lib/stock";
+import {
+  getAvailabilityMap,
+  getIssuableLotsMap,
+  getRefMaps,
+} from "@/lib/stock";
 
 export const dynamic = "force-dynamic";
 
 export default async function IssuePage() {
-  const [{ drugs, warehouses }, available] = await Promise.all([
+  const [{ drugs, warehouses }, available, lotsByKey] = await Promise.all([
     getRefMaps(),
     getAvailabilityMap(),
+    getIssuableLotsMap(),
   ]);
 
   return (
@@ -24,6 +29,7 @@ export default async function IssuePage() {
             drugs={drugs}
             warehouses={warehouses}
             available={available}
+            lotsByKey={lotsByKey}
           />
         </CardContent>
       </Card>
